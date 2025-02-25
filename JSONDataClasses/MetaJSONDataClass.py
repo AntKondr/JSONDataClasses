@@ -5,6 +5,8 @@ from .utils import isJSONPrimitiveType, isSequenceType
 
 
 class MJSONDataClass(type):
+    MAIN_CLASS_NAME: str = "JSONDataClass"
+
     def __new__(
         cls,
         name: str,
@@ -24,6 +26,8 @@ class MJSONDataClass(type):
     ) -> type:
 
         NewClass: type = type.__new__(cls, name, baseClasses, nameSpace)
+        if name == MJSONDataClass.MAIN_CLASS_NAME:
+            return NewClass
         try:
             typeHints: dict[str, Any] = get_type_hints(NewClass, include_extras=True)
         except NameError as e:
