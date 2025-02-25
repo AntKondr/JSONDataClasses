@@ -83,8 +83,8 @@ class JSONDataClass(metaclass=MJSONDataClass):
         return seq
 
     # public methods for usage ----------------------------------------------------------------------
-    def toJSON(self, itemSep: str = ",", keySep: str = ":") -> str:
-        return dumps(self, separators=(itemSep, keySep), default=vars)
+    def toJSON(self, indent: int | None = None, itemSep: str = ",", keySep: str = ":") -> str:
+        return dumps(self, indent=indent, separators=(itemSep, keySep), default=vars)
 
     @classmethod
     def fromJSON(cls, json: str | bytes | bytearray) -> Self:
