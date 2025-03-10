@@ -16,3 +16,6 @@ class JSONFieldTypeError(Exception):
 
     def __str__(self) -> str:
         return f"json field type error: does not match to dataclass:\ndataclass: {self.dataClass}; field: {self.fieldName}; expected: {self.dataClassFieldType}; recieved: {self.jsonFieldType}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
