@@ -23,9 +23,7 @@ class JSONCodable(metaclass=MJSONCodable):
                 return dv
             raise DecodeError(f"""Default value for field {fieldName} not defined""")
         if isJSONPrimitiveType(fieldType):
-            if typeOfJSONValue is fieldType:
-                return jsonValue
-            raise JSONFieldTypeError(cls, fieldName, fieldType, typeOfJSONValue)
+            return fieldType(jsonValue)
         elif issubclass(fieldType, JSONCodable):
             if typeOfJSONValue is dict:
                 return fieldType.fromDict(jsonValue)
