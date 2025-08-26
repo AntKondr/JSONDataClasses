@@ -1,7 +1,12 @@
 ## Module for simple data objects (compatible with json) description with python classes
+
+pip:
+<pre><code><span style="color: #e5c07b">JSONDataClasses</span> @ git+ssh://git@gitlab.vekarus.loc/VekaProg/jsondataclasses.git@master
+</code></pre>
+
 ## Usage
 ```python
-from JSONDataClasses import JSONDataClass
+from JSONDataClasses import JSONCodable
 
 class Abzug(JSONDataClass):
     id: int
@@ -12,14 +17,14 @@ class Extruder(JSONDataClass):
     invNo: int
     name: str | None
 
-class FactoryLine(JSONDataClass, frozen=True):
+class FactoryLine(JSONDataClass):
     id: int
     number: int
     strandsAmt: int
     abzug: Abzug | None
     extruder: Extruder | None
 
-class Factory(JSONDataClass, slots=True):
+class Factory(JSONDataClass):
     id: int
     name: str
     address: str
@@ -65,14 +70,3 @@ json2: str = """{
 }"""
 factory2: Factory = Factory.fromJSON(json2)
 ```
-
-For classes definitions it is possible to give boolean args as for simple dataclasses:<br/>
-`frozen`, `slots`, `repr`, `order`, `unsafe_hash`, etc.<br/>
-```python
-class Bar(JSONDataClass, frozen=True, slots=True, order=True):
-    id: int
-    name: str | None
-```
-See the [dataclasses] documentation.
-
-[dataclasses]: https://docs.python.org/3/library/dataclasses.html

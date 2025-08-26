@@ -1,1 +1,1 @@
-from .JSONDataClass import JSONDataClass
+from .JSONDataClass import JSONCodable

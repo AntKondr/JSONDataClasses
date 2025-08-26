@@ -1,7 +1,11 @@
 from types import GenericAlias, UnionType
 
 
-class JSONFieldTypeError(Exception):
+class DecodeError(Exception):
+    pass
+
+
+class JSONFieldTypeError(DecodeError):
     def __init__(
         self,
         dataClass: type,

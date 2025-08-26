@@ -1,24 +1,34 @@
 from typing import Any, Self, dataclass_transform, get_type_hints, get_origin, get_args
-from types import GenericAlias, UnionType, NoneType
+from types import GenericAlias, UnionType, NoneType, EllipsisType
 from json import loads, dumps
 from .utils import isJSONPrimitiveType
-from .MetaJSONDataClass import MJSONDataClass, BOUND_TYPES
-from .exceptions import JSONFieldTypeError
+from .MetaJSONDataClass import MJSONCodable, BOUND_TYPES
+from .exceptions import DecodeError, JSONFieldTypeError
 
 
 @dataclass_transform()
-class JSONDataClass(metaclass=MJSONDataClass):
+class JSONCodable(metaclass=MJSONCodable):
+    __slots__ = ()
+    __defaults__ = {}
+
+    @classmethod
+    def __getDefault(cls, field: str) -> Any | EllipsisType:
+        return cls.__defaults__.get(field, ...)
+
     @classmethod
     def __handleType(cls, fieldName: str, fieldType: type, jsonValue: Any) -> Any:      # simple type (when type(fieldType) is type)
         typeOfJSONValue: type = type(jsonValue)
+        if jsonValue is None:
+            if (dv := cls.__getDefault(fieldName)) is not ...:
+                return dv
+            raise DecodeError(f"""Default value for field {fieldName} not defined""")
         if isJSONPrimitiveType(fieldType):
             if typeOfJSONValue is fieldType:
                 return jsonValue
             raise JSONFieldTypeError(cls, fieldName, fieldType, typeOfJSONValue)
-        elif issubclass(fieldType, JSONDataClass):
+        elif issubclass(fieldType, JSONCodable):
             if typeOfJSONValue is dict:
                 return fieldType.fromDict(jsonValue)
-            # raise Exception(f"handleType: json validation error, expected {dict}, but got {typeOfJSONValue}")
             raise JSONFieldTypeError(cls, fieldName, fieldType, typeOfJSONValue)
         else:
             raise Exception(f"handleType: unhandled type {fieldType} of field {fieldName} into dataclass {cls}")
@@ -84,7 +94,7 @@ class JSONDataClass(metaclass=MJSONDataClass):
 
     # public methods for usage ----------------------------------------------------------------------
     def toJSON(self, indent: int | None = None, itemSep: str = ",", keySep: str = ":") -> str:
-        return dumps(self, indent=indent, separators=(itemSep, keySep), default=vars)
+        return dumps(self, indent=indent, separators=(itemSep, keySep), default=slots)
 
     @classmethod
     def fromJSON(cls, json: str | bytes | bytearray) -> Self:
@@ -93,22 +103,25 @@ class JSONDataClass(metaclass=MJSONDataClass):
 
     @classmethod
     def fromDict(cls, d: dict[str, Any]) -> Self:
-        jsonValue: Any
-
+        p: dict[str, Any] = {}
         typeHints: dict[str, Any] = get_type_hints(cls, include_extras=True)
         for fieldName, fieldType in typeHints.items():
-            if type(fieldType) in BOUND_TYPES:                          # simple type, like int, str (primitives), list (seqs) and user def classes (not primitives)
-                jsonValue = d[fieldName]
-                d[fieldName] = cls.__handleType(fieldName, fieldType, jsonValue)
+            jsonValue: Any | None = d.get(fieldName)
+            if type(fieldType) in BOUND_TYPES:                          # simple concrete type (not union or generic), like int, str (primitives), list (seqs) and user def classes
+                p[fieldName] = cls.__handleType(fieldName, fieldType, jsonValue)
 
             elif type(fieldType) is UnionType:                          # list[Foo] | Foo | None    __args__ - tuple of types included into union
-                jsonValue = d.get(fieldName)
-                if jsonValue:
-                    d[fieldName] = cls.__handleUnion(fieldName, fieldType, jsonValue)
-                else:
-                    d[fieldName] = None
+                p[fieldName] = cls.__handleUnion(fieldName, fieldType, jsonValue)
 
             elif type(fieldType) is GenericAlias:                       # list[Foo]     or      tuple[int, float, float]    __origin__ - main type, __args__ - tuple of types into generic
-                jsonValue = d[fieldName]
-                d[fieldName] = cls.__handleGeneric(fieldName, fieldType, jsonValue)
-        return cls(**d)
+                p[fieldName] = cls.__handleGeneric(fieldName, fieldType, jsonValue)
+        return cls(**p)
+
+
+def slots(o: JSONCodable) -> dict[str, Any]:
+    d = {}
+    for f in o.__slots__:
+        v = getattr(o, f, None)
+        if v is not None:
+            d[f] = v
+    return d
