@@ -2,7 +2,7 @@ from typing import Any, Self, dataclass_transform, get_type_hints, get_origin, g
 from types import GenericAlias, UnionType, NoneType, EllipsisType
 from json import loads, dumps
 from .utils import isJSONPrimitiveType
-from .MetaJSONDataClass import MJSONCodable, BOUND_TYPES
+from .Meta import MJSONCodable, BOUND_TYPES
 from .exceptions import DecodeError, JSONFieldTypeError
 
 
