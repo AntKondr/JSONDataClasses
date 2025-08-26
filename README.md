@@ -8,29 +8,29 @@ pip:
 ```python
 from JSONDataClasses import JSONCodable
 
-class Abzug(JSONDataClass):
+class Abzug(JSONCodable):
     id: int
     invNo: int
 
-class Extruder(JSONDataClass):
+class Extruder(JSONCodable):
     id: int
     invNo: int
     name: str | None
 
-class FactoryLine(JSONDataClass):
+class FactoryLine(JSONCodable):
     id: int
     number: int
     strandsAmt: int
     abzug: Abzug | None
     extruder: Extruder | None
 
-class Factory(JSONDataClass):
+class Factory(JSONCodable):
     id: int
     name: str
     address: str
     factoryLines: list[FactoryLine]
 
-class GraphPoints(JSONDataClass):
+class GraphPoints(JSONCodable):
     points: list[tuple[int, float, float]]
 
 factory1: Factory = Factory(
@@ -69,4 +69,5 @@ json2: str = """{
     "factoryLines": []
 }"""
 factory2: Factory = Factory.fromJSON(json2)
+print(factory2.toJSON(indent=2))
 ```
