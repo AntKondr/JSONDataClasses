@@ -92,7 +92,7 @@ class JSONCodable(metaclass=MJSONCodable):
 
     # public methods for usage ----------------------------------------------------------------------
     def toJSON(self, indent: int | None = None, itemSep: str = ",", keySep: str = ":") -> str:
-        return dumps(self, indent=indent, separators=(itemSep, keySep), default=slots)
+        return dumps(self, indent=indent, separators=(itemSep, keySep), ensure_ascii=False, default=slots)
 
     @classmethod
     def fromJSON(cls, json: str | bytes | bytearray) -> Self:
