@@ -1,5 +1,6 @@
-from typing import Any, Self, dataclass_transform, get_type_hints, get_origin, get_args
+from typing import Any, Self, Final, dataclass_transform, get_type_hints, get_origin, get_args
 from types import GenericAlias, UnionType, NoneType, EllipsisType
+from enum import Enum
 from json import loads, dumps
 from .utils import isJSONPrimitiveType
 from .Meta import MJSONCodable, BOUND_TYPES
@@ -8,28 +9,33 @@ from .exceptions import DecodeError, JSONFieldTypeError
 
 @dataclass_transform()
 class JSONCodable(metaclass=MJSONCodable):
-    __slots__ = ()
-    __defaults__ = {}
+    __slots__: Final[tuple[str, ...]] = ()
+    _defaults: Final[dict[str, Any]] = {}
+    _strict: bool = True
 
     @classmethod
-    def __getDefault(cls, field: str) -> Any | EllipsisType:
-        return cls.__defaults__.get(field, ...)
+    def __getDefault(cls, field: str) -> EllipsisType | Any:
+        return cls._defaults.get(field, ...)
 
     @classmethod
     def __handleType(cls, fieldName: str, fieldType: type, jsonValue: Any) -> Any:      # simple type (when type(fieldType) is type)
-        typeOfJSONValue: type = type(jsonValue)
         if jsonValue is None:
             if (dv := cls.__getDefault(fieldName)) is not ...:
                 return dv
             raise DecodeError(f"""Default value for field {fieldName} not defined""")
-        if isJSONPrimitiveType(fieldType):
+        elif isJSONPrimitiveType(fieldType):
+            if cls._strict:
+                if fieldType is (typeOfJSONValue := type(jsonValue)):
+                    return jsonValue
+                raise JSONFieldTypeError(cls, fieldName, fieldType, typeOfJSONValue)
+            return fieldType(jsonValue)
+        elif issubclass(fieldType, Enum):
             return fieldType(jsonValue)
         elif issubclass(fieldType, JSONCodable):
-            if typeOfJSONValue is dict:
+            if (typeOfJSONValue := type(jsonValue)) is dict:
                 return fieldType.fromDict(jsonValue)
             raise JSONFieldTypeError(cls, fieldName, fieldType, typeOfJSONValue)
-        else:
-            raise Exception(f"handleType: unhandled type {fieldType} of field {fieldName} into dataclass {cls}")
+        raise Exception(f"handleType: unhandled type {fieldType} of field {fieldName} into class {cls}")
 
     @classmethod
     def __handleUnion(cls, fieldName: str, fieldType: UnionType, jsonValue: Any) -> Any:         # union type (when type(fieldType) is UnionType)
@@ -102,7 +108,7 @@ class JSONCodable(metaclass=MJSONCodable):
     @classmethod
     def fromDict(cls, d: dict[str, Any]) -> Self:
         p: dict[str, Any] = {}
-        typeHints: dict[str, Any] = get_type_hints(cls, include_extras=True)
+        typeHints: dict[str, type] = get_type_hints(cls, include_extras=True)
         for fieldName, fieldType in typeHints.items():
             jsonValue: Any | None = d.get(fieldName)
             if type(fieldType) in BOUND_TYPES:                          # simple concrete type (not union or generic), like int, str (primitives), list (seqs) and user def classes
@@ -116,10 +122,8 @@ class JSONCodable(metaclass=MJSONCodable):
         return cls(**p)
 
 
-def slots(o: JSONCodable) -> dict[str, Any]:
-    d = {}
-    for f in o.__slots__:
-        v = getattr(o, f, None)
-        if v is not None:
-            d[f] = v
-    return d
+def slots(o: JSONCodable | Enum) -> dict[str, Any]:
+    if isinstance(o, JSONCodable):
+        return {f: v for f in o.__slots__ if (v := getattr(o, f, None)) is not None}
+    else:
+        return o.value

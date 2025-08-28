@@ -1,5 +1,6 @@
 from typing import Any, Final, get_type_hints, get_origin, get_args
 from types import GenericAlias, UnionType, NoneType, EllipsisType
+from enum import Enum, EnumType
 from .utils import isJSONPrimitiveType, isSequenceType
 
 
@@ -7,13 +8,11 @@ class MJSONCodable(type):
     __MAIN_CLASS_NAME: Final[str] = "JSONCodable"
     __mainClassNotCreated: bool = True
 
-    def __new__(
-        cls,
-        name: str,
-        baseClasses: tuple[type, ...],
-        attrs: dict[str, Any],
-        /                                   # noqa: W504
-    ) -> type:
+    def __new__(cls, name: str, baseClasses: tuple[type, ...], attrs: dict[str, Any], /) -> "MJSONCodable":
+        annotations: dict[str, type] = attrs["__annotations__"]
+        annotations.pop("__slots__", None)
+        annotations.pop("_defaults", None)
+        annotations.pop("_strict", None)
         if name == cls.__MAIN_CLASS_NAME:
             if cls.__mainClassNotCreated:
                 cls.__mainClassNotCreated = False
@@ -21,14 +20,13 @@ class MJSONCodable(type):
             else:
                 raise Exception(f"{cls.__MAIN_CLASS_NAME} primary class has been already created! Secondary not allowed!")
 
-        annotations: dict[str, type] = attrs["__annotations__"]
         defaults: dict[str, Any] = {}
         for field in annotations:
             if (value := attrs.pop(field, ...)) is not ...:
                 defaults[field] = value
 
         attrs["__slots__"] = tuple((field for field in annotations if not field.startswith("_")))
-        attrs["__defaults__"] = defaults
+        attrs["_defaults"] = defaults
         cls.__setInit(attrs, annotations, defaults)
         NewClass: type = super().__new__(cls, name, baseClasses, attrs)
         annotations = get_type_hints(NewClass, include_extras=True)
@@ -48,24 +46,25 @@ class MJSONCodable(type):
         return NewClass
 
     @classmethod
-    def __setInit(cls, env: dict[str, Any], annotations: dict[str, type], defaults: dict[str, Any]) -> None:
+    def __setInit(cls, classAttrs: dict[str, Any], annotations: dict[str, type], defaults: dict[str, Any]) -> None:
         n: str = "\n"
         paramsSB: list[str] = []
         bodySB: list[str] = []
         for f in annotations:
             if f in defaults:
                 paramsSB.append(f"{f} = None")
-                bodySB.append(f"""\tself.{f} = self.__defaults__["{f}"] if {f} is None else {f}""")
+                bodySB.append(f"""\tself.{f} = self._defaults["{f}"] if {f} is None else {f}""")
             else:
                 paramsSB.append(f"{f}")
                 bodySB.append(f"\tself.{f} = {f}")
 
-        method: str = f"""def __init__(self, {", ".join(paramsSB)}):\n{n.join(bodySB)}"""
-        exec(method, env)
+        initStr: str = f"""def __init__(self, {", ".join(paramsSB)}):\n{n.join(bodySB)}"""
+        exec(initStr, globals(), local := {})
+        classAttrs["__init__"] = local["__init__"]
 
     @classmethod
     def __checkType(cls, _cls: type) -> None:
-        if isJSONPrimitiveType(_cls) or type(_cls) is cls:
+        if isJSONPrimitiveType(_cls) or issubclass(_cls, Enum) or type(_cls) is cls:
             return None
         elif isSequenceType(_cls):
             raise Exception(f"checkType: need to specify generic type for sequence {_cls}")
@@ -132,4 +131,4 @@ class MJSONCodable(type):
             raise Exception(f"checkListGeneric: not allowed arg {genTyp} in list generic")
 
 
-BOUND_TYPES: tuple[type, ...] = (type, MJSONCodable)
+BOUND_TYPES: tuple[type, ...] = (type, MJSONCodable, EnumType)
