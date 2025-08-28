@@ -1,73 +1,91 @@
-## Module for simple data objects (compatible with json) description with python classes
+## Module for describing json compatible data objects using python classes
 
 pip:
 <pre><code><span style="color: #e5c07b">JSONDataClasses</span> @ git+ssh://git@gitlab.vekarus.loc/VekaProg/jsondataclasses.git@master
 </code></pre>
 
-## Usage
+This is similar to standard dataclasses.
+
+`__slots__` is injected into the classes.
+
+4 methods are also added: `__init__`, `toJSON`, `fromJSON` and `fromDict`.
+
+`fromJSON`, `fromDict` are classmethods.
+
+Optional class parameter `_strict` - defines the strictness of parsing the json document. Defaults to True.
+
+In case when **_strict** is True, the primitive fields of json document will not attempt to cast to a type, described in the class schema, and if type of value does not match to type in schema - an exception will be raised.
+
+For example, the field `id: int` will expect exactly `"id": 1` in the json document.
+In the case of `"id": "1"` an exception will be raised.
+
+In case when **_strict** is False, the primitive fields of json document will attempt to casts to a type, described in the class schema.
+In the case of `"id": "1"`, string `"1"` will attempt to casts to integer `1`.
+
+Simple enums are also supported.
+
+## Usage example
 ```python
+from enum import Enum
 from JSONDataClasses import JSONCodable
 
-class Abzug(JSONCodable):
-    id: int
-    invNo: int
+class TransportProto(Enum):
+    UDP = "udp"
+    TCP = "tcp"
 
-class Extruder(JSONCodable):
-    id: int
-    invNo: int
-    name: str | None
+class HostType(Enum):
+    STATION_COMPUTER = 1
+    NOTEBOOK = 2
+    PHONE = 3
+    PRINTER = 4
+    ROUTER = 5
 
-class FactoryLine(JSONCodable):
-    id: int
-    number: int
-    strandsAmt: int
-    abzug: Abzug | None
-    extruder: Extruder | None
+class Hosts(JSONCodable):
+    _strict: bool = True  # it's default, assigning not required
 
-class Factory(JSONCodable):
-    id: int
-    name: str
-    address: str
-    factoryLines: list[FactoryLine]
+    class Host(JSONCodable):
+        id: int
+        name: str | None
+        ip: str
+        type: HostType
+        transportProto: TransportProto = TransportProto.TCP
+        description: str | None = None
 
-class GraphPoints(JSONCodable):
-    points: list[tuple[int, float, float]]
+    class Meta(JSONCodable):
+        objsCount: int
+        pageNumber: int
+        pagesCount: int
 
-factory1: Factory = Factory(
-    id=5711,
-    name="Some name",
-    address="Some address",
-    factoryLines=[
-        FactoryLine(
-            id=1,
-            number=1,
-            strandsAmt=2,
-            abzug=Abzug(
-                id=1,
-                invNo=123
-            ),
-            extruder=Extruder(
-                id=1,
-                invNo=123,
-                name="extruder name"
-            )
-        ),
-        FactoryLine(
-            id=2,
-            number=2,
-            strandsAmt=2,
-            abzug=None,
-            extruder=None
-        )
-    ]
-)
-json1: str = factory1.toJSON()
-json2: str = """{
-    "id": 5711,
-    "name": "Some name",
-    "address": "Some address",
-    "factoryLines": []
+    hosts: list[Host]
+    meta: Meta | None = None
+
+j: str = """{
+    "hosts": [
+        {
+            "id": 1,
+            "name": "localhost",
+            "ip": "127.0.0.1",
+            "type": 1,
+            "transportProto": "udp"
+        },
+        {
+            "id": 2,
+            "name": "printer in the hall",
+            "ip": "10.50.150.22",
+            "type": 4
+        },
+        {
+            "id": 3,
+            "ip": "10.50.150.25",
+            "type": 3,
+            "transportProto": "udp"
+        }
+    ],
+    "meta": {
+        "objsCount": 3,
+        "pageNumber": 1,
+        "pagesCount": 5
+    }
 }"""
-factory2: Factory = Factory.fromJSON(json2)
-print(factory2.toJSON(indent=2))
+print(Hosts.fromJSON(j).toJSON(indent=4))
 ```
