@@ -24,6 +24,8 @@ In the case of `"id": "1"`, string `"1"` will attempt to casts to integer `1`.
 
 Simple enums are also supported.
 
+Self-referencing also supported.
+
 ## Usage example
 ```python
 from enum import Enum
@@ -88,4 +90,32 @@ j: str = """{
     }
 }"""
 print(Hosts.fromJSON(j).toJSON(indent=4))
+```
+
+## Self-referencing example
+
+```python
+from JSONDataClasses import JSONCodable
+
+class Node(JSONCodable):
+    data: str
+    left: "Node | None" = None
+    right: "Node | None" = None
+
+tree: Node = Node(
+    data="qwe",
+    left=Node(
+        data="asd",
+        left=Node(
+            data="zxc"
+        ),
+        right=Node(
+            data="qaz"
+        )
+    ),
+    right=Node(
+        data="wsx"
+    )
+)
+print(Node.fromJSON(tree.toJSON()).toJSON(2))
 ```

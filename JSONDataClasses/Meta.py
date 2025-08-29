@@ -29,7 +29,8 @@ class MJSONCodable(type):
         attrs["_defaults"] = defaults
         cls.__setInit(attrs, annotations, defaults)
         NewClass: type = super().__new__(cls, name, baseClasses, attrs)
-        annotations = get_type_hints(NewClass, include_extras=True)
+        locals()[name] = NewClass   # for self-referencing
+        annotations = get_type_hints(NewClass, localns=locals(), include_extras=True)
         # check the correctness JSON fields types
         for fieldName, fieldType in annotations.items():
             if type(fieldType) in BOUND_TYPES:
